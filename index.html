@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zombie Shooter</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #0b1220cc;
+      --border: #23324a;
+      --ink: #e5e7eb;
+      --dim: #a1a1aa;
+      --accent: #60a5fa;
+      --gold: #facc15;
+      --good: #22c55e;
+      --bad: #ef4444;
+    }
+    html, body { margin:0; height:100%; background:#020617; color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; overflow:hidden; }
+    #game { position:absolute; inset:0; display:block; background:var(--bg); }
+    /* HUD */
+    .hud { position:absolute; pointer-events:none; }
+    #hpPanel { left:16px; top:16px; width:260px; background:var(--panel); border:1px solid var(--border); padding:12px 14px; border-radius:12px; }
+    #hpBarWrap { height:14px; background:#111827; border-radius:999px; overflow:hidden; }
+    #hpBar { height:100%; background: linear-gradient(90deg,#34d399,#22c55e,#16a34a); width:100%; }
+    #hpText { margin-top:6px; font-weight:700; letter-spacing:.3px; }
+    #rightPanel { right:16px; top:16px; width:300px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; }
+    .sectionTitle { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.12em; margin:2px 0 8px; }
+    #inventory { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .slot { aspect-ratio:1/1; border:1px dashed #334155; border-radius:10px; display:grid; place-items:center; font-size:12px; background:#0f172a; }
+    .slot.filled { border-style:solid; border-color:#475569; }
+    #money { margin-top:10px; font-weight:800; color:var(--gold); }
+    #hints { left:16px; bottom:16px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px 12px; font-size:12px; line-height:1.4; max-width:720px; }
+    /* Panels */
+    .panel { position:absolute; inset:0; background:#000000b0; display:none; align-items:center; justify-content:center; z-index:10; }
+    .panel.open { display:flex; }
+    .card { pointer-events:all; background:#111827; border:1px solid #2b3b56; border-radius:16px; padding:16px; width:min(920px,92vw); max-height:86vh; overflow:auto; box-shadow:0 40px 80px #0009; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+    .item { background:#1f2937; border:1px solid #324158; border-radius:14px; padding:12px; }
+    .item h4 { margin:0 0 6px; font-size:16px; }
+    .item p { margin:0 0 8px; font-size:12px; color:var(--dim); }
+    .item button, .row button { width:100%; padding:8px 10px; border-radius:10px; border:1px solid #3a4e6d; background:#0f172a; color:var(--ink); cursor:pointer; }
+    .row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end; }
+    .row input, .row select { width:100%; padding:8px 10px; border-radius:10px; background:#0f172a; border:1px solid #3a4e6d; color:var(--ink); }
+    /* Toast */
+    #toast { position:absolute; top:16px; left:50%; transform:translateX(-50%); display:grid; gap:8px; z-index:20; }
+    .toastItem { background:#111827; border:1px solid #334155; padding:10px 12px; border-radius:10px; min-width:240px; text-align:center; }
+    /* Leaderboard */
+    #board { position:absolute; right:16px; bottom:16px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px 12px; font-size:12px; max-width:300px; }
+    #board table { width:100%; border-collapse:collapse; }
+    #board th, #board td { padding:4px 6px; text-align:left; border-bottom:1px solid #1f2937; }
+    /* Menu */
+    #menu { position:absolute; inset:0; display:block; z-index:15; }
+    #menu .overlay { position:absolute; inset:0; background:linear-gradient(180deg,#0b1220e6,#000000f0); pointer-events:none; }
+    #menu .cardHome { position:absolute; inset:0; display:grid; place-items:center; }
+    #menu .title { background:#0b1220; border:1px solid var(--border); border-radius:18px; padding:24px 28px; width:min(720px,92vw); text-align:center; box-shadow:0 40px 80px #000a; }
+    #homeBtns { position:absolute; inset:auto 16px 16px auto; display:flex; gap:10px; }
+    #btnPlay { padding:12px 18px; border-radius:12px; border:1px solid #3a4e6d; background:#1f2937; color:var(--ink); font-weight:800; cursor:pointer; }
+    #btnQuests { position:absolute; left:16px; bottom:16px; padding:10px 14px; border-radius:12px; border:1px solid #3a4e6d; background:#1f2937; color:var(--ink); cursor:pointer; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD left: HP -->
+  <div class="hud" id="hpPanel">
+    <div class="sectionTitle">Points de Vie</div>
+    <div id="hpBarWrap"><div id="hpBar"></div></div>
+    <div id="hpText">1000 / 1000</div>
+  </div>
+
+  <!-- HUD right: Inventory + Money -->
+  <div class="hud" id="rightPanel">
+    <div class="sectionTitle">Inventaire (5)</div>
+    <div id="inventory"></div>
+    <div id="money">💰 0</div>
+    <div style="margin-top:8px; font-size:12px; color:var(--dim)">Boutique: <b>B</b> • Admin: <b>P</b></div>
+  </div>
+
+  <!-- Hints -->
+  <div class="hud" id="hints">
+    <div style="font-weight:700; margin-bottom:6px">Contrôles</div>
+    ZQSD = se déplacer • Souris = viser • Clic = tirer • E = coffre • B = Boutique • P = Admin • Shift = courir • Espace = saut • M = mute
+  </div>
+
+  <!-- Leaderboard (local) -->
+  <div class="hud" id="board">
+    <div style="font-weight:700; margin-bottom:6px">🏆 Classement (local)</div>
+    <table>
+      <thead><tr><th>Joueur</th><th>Kills</th><th>$</th></tr></thead>
+      <tbody id="boardBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Shop Panel -->
+  <div class="panel" id="shopPanel">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px">
+        <h2 style="margin:0">🛒 Boutique</h2>
+        <button id="closeShop" class="row" style="padding:8px 12px">Fermer (B)</button>
+      </div>
+      <div class="sectionTitle">Armes</div>
+      <div class="grid" id="shopWeapons"></div>
+      <div class="sectionTitle" style="margin-top:12px">Personnages</div>
+      <div class="grid" id="shopChars"></div>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="panel" id="adminPanel">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px">
+        <h2 style="margin:0">🛠️ Admin Panel</h2>
+        <button id="closeAdmin" class="row" style="padding:8px 12px">Fermer (P)</button>
+      </div>
+      <div class="grid">
+        <div class="item">
+          <h4>Donner de l'argent</h4>
+          <div class="row"><input id="adminPlayerName" placeholder="Nom du joueur" /></div>
+          <div class="row"><input id="adminMoneyAmount" type="number" value="500" min="0" step="50" /><button id="btnGiveMoney">Give</button></div>
+        </div>
+
+        <div class="item">
+          <h4>Vitesse de marche</h4>
+          <div class="row"><input id="adminWalkSpeed" type="range" min="100" max="500" value="220" /><button id="btnApplySpeed">Appliquer</button></div>
+        </div>
+
+        <div class="item">
+          <h4>Spawns</h4>
+          <div class="row"><input id="adminZCount" type="number" min="1" value="5" /><button id="btnSpawnZ">Spawn Zombies</button></div>
+          <div class="row" style="margin-top:8px"><input id="adminBCount" type="number" min="1" value="1" /><button id="btnSpawnBoss">Spawn Boss</button></div>
+          <div class="row" style="margin-top:8px"><button id="btnKillAll">Tuer tous les zombies</button></div>
+        </div>
+
+        <div class="item">
+          <h4>Gestion Admins</h4>
+          <div class="row"><input id="adminGrantName" placeholder="Nom à ajouter" /><button id="btnGrant">Accorder</button></div>
+          <div class="row" style="margin-top:8px"><input id="adminRevokeName" placeholder="Nom à retirer" /><button id="btnRevoke">Retirer</button></div>
+        </div>
+
+        <div class="item">
+          <h4>Classement</h4>
+          <div class="row"><button id="btnResetBoard">Réinitialiser</button></div>
+        </div>
+      </div>
+
+      <p style="margin-top:12px; font-size:12px; color:var(--dim)">Données locales sauvegardées dans ton navigateur (argent, inventaire, classements).</p>
+    </div>
+  </div>
+
+  <!-- Menu / Accueil -->
+  <div id="menu">
+    <div class="overlay"></div>
+    <div class="cardHome">
+      <div class="title">
+        <h1 style="margin:0 0 8px">🧟 ZOMBIE SHOOTER</h1>
+        <p style="margin:0; color:var(--dim)">Élimine 20 zombies pour gagner — 5$ par zombie, coffres aléatoires.</p>
+      </div>
+    </div>
+    <div id="homeBtns">
+      <button id="btnPlay">Jouer ▶</button>
+    </div>
+    <button id="btnQuests">Quêtes 📜</button>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+/* ========================
+ * Utilitaires & stockage
+ * ======================*/
+const rand=(a,b)=>Math.random()*(b-a)+a;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const dist2=(x1,y1,x2,y2)=>{const dx=x2-x1,dy=y2-y1;return dx*dx+dy*dy};
+
+const db = {
+  load(key, def){ try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } },
+  save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+};
+function toast(msg, ms=1600){ const t=document.createElement('div'); t.className='toastItem'; t.textContent=msg; document.getElementById('toast').appendChild(t); setTimeout(()=>t.remove(), ms); }
+
+// Profil & permissions
+const DEFAULT_ADMIN = "Nael424";
+let profile = db.load('profile', null);
+if(!profile){
+  const name = prompt("Entrez votre pseudo:", DEFAULT_ADMIN) || DEFAULT_ADMIN;
+  profile = { name, money: 10, best:{kills:0, money:0}, speed: 220 };
+  db.save('profile', profile);
+  toast(`Bienvenue, ${name} !`);
+}
+let adminList = new Set(db.load('adminList', [DEFAULT_ADMIN]));
+const isAdmin = ()=> adminList.has(profile.name);
+const saveAdmins = ()=> db.save('adminList', Array.from(adminList));
+
+// Argent (jamais < 0) + persistance
+function setMoney(v){ profile.money = Math.max(0, Math.floor(v)); db.save('profile', profile); updateMoney(); }
+function addMoney(delta){ setMoney((profile.money|0) + delta); }
+
+/* ========================
+ * Canvas & état de jeu
+ * ======================*/
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = innerWidth;
+let H = canvas.height = innerHeight;
+addEventListener('resize', ()=>{ W=canvas.width=innerWidth; H=canvas.height=innerHeight; });
+
+const state = {
+  running: false,
+  muted: false,
+  mapSize: 3200,
+  time: 0,
+  chests: [],
+  zombies: [],
+  bullets: [],
+  bosses: [],
+  killsZ: 0,
+  targetZ: 20,
+  spawnedZ: 0,
+  autoSpawnTimer: 0,
+  autoSpawnInterval: 3,
+  phase: 'menu', // 'menu' | 'playing'
+  quests: []
+};
+
+const player = {
+  x: 1600, y: 1600, r: 16,
+  hp: 1000, hpMax: 1000,
+  baseSpeed: profile.speed || 220,
+  dir: 0,
+  vx:0, vy:0,
+  dodging:false, dodgeT:0,
+  weapon: 'gun',
+  char: 'soldier',
+  inv: []
+};
+
+// Armes (+5 dmg par palier de prix)
+const weapons = {
+  gun:    {name:'Gun',      cost:0,    dmg:20, rof:4,   speed:700,  spread:0.02},
+  smg:    {name:'PM',       cost:600,  dmg:0,  rof:12,  speed:800,  spread:0.06},
+  shotgun:{name:'Pompe',    cost:900,  dmg:0,  rof:1.5, speed:700,  spread:0.2, pellets:6},
+  rifle:  {name:'Fusil',    cost:1200, dmg:0,  rof:3,   speed:1000, spread:0.01},
+  rail:   {name:'Railgun',  cost:2500, dmg:0,  rof:1.2, speed:1200, spread:0}
+};
+(function normalizeWeaponDamage(){
+  const arr = Object.entries(weapons).sort((a,b)=>a[1].cost-b[1].cost);
+  arr[0][1].dmg = arr[0][1].dmg || 20;
+  for(let i=1;i<arr.length;i++){ arr[i][1].dmg = arr[i-1][1].dmg + 5; }
+})();
+
+const characters = {
+  soldier: {name:'Soldat', cost: 0, hp: 1000, speed: 220},
+  scout:   {name:'Éclaireur', cost: 800, hp: 850, speed: 280},
+  tank:    {name:'Tank', cost: 1200, hp: 1400, speed: 170},
+};
+
+const sounds = { shoot(){}, chest(){}, hit(){} };
+
+/* ========================
+ * Interface
+ * ======================*/
+const hpBar = document.getElementById('hpBar');
+const hpText = document.getElementById('hpText');
+const moneyEl = document.getElementById('money');
+const invEl = document.getElementById('inventory');
+const shopPanel = document.getElementById('shopPanel');
+const adminPanel = document.getElementById('adminPanel');
+const menu = document.getElementById('menu');
+const btnPlay = document.getElementById('btnPlay');
+const btnQuests = document.getElementById('btnQuests');
+
+function updateHP(){ hpBar.style.width = `${(player.hp/player.hpMax)*100}%`; hpText.textContent = `${Math.ceil(player.hp)} / ${player.hpMax}`; }
+function updateMoney(){ moneyEl.textContent = `💰 ${profile.money|0}`; }
+function renderInventory(){ invEl.innerHTML=''; for(let i=0;i<5;i++){ const s=document.createElement('div'); s.className='slot'+(player.inv[i]?' filled':''); s.textContent=player.inv[i]?.label||'+'; invEl.appendChild(s);} }
+function addToInventory(label){ for(let i=0;i<5;i++) if(!player.inv[i]){ player.inv[i]={label}; renderInventory(); return true;} toast('Inventaire plein'); return false; }
+function buy(cost,onOK){ if(profile.money>=cost){ setMoney(profile.money - cost); onOK(); } else toast("Pas assez d'argent"); }
+
+// Boutique
+function openShop(){
+  document.getElementById('shopWeapons').innerHTML = Object.entries(weapons).map(([k,w])=>`<div class="item"><h4>${w.name}</h4><p>Dégâts: ${w.dmg} • Cadence: ${w.rof}/s</p><button data-k="${k}" data-type="w">Acheter — $${w.cost}</button></div>`).join('');
+  document.getElementById('shopChars').innerHTML = Object.entries(characters).map(([k,c])=>`<div class="item"><h4>${c.name}</h4><p>PV: ${c.hp} • Vitesse: ${c.speed}</p><button data-k="${k}" data-type="c">Acheter — $${c.cost}</button></div>`).join('');
+  shopPanel.classList.add('open');
+}
+function closeShop(){ shopPanel.classList.remove('open'); }
+document.getElementById('closeShop').onclick = closeShop;
+shopPanel.addEventListener('click', (e)=>{
+  if(e.target===shopPanel) closeShop();
+  if(e.target.tagName==='BUTTON' && e.target.dataset.k){
+    const key=e.target.dataset.k; const type=e.target.dataset.type;
+    if(type==='w'){ const w=weapons[key]; buy(w.cost,()=>{ player.weapon=key; addToInventory(w.name); toast(`Acheté: ${w.name}`); }); }
+    else { const c=characters[key]; buy(c.cost,()=>{ player.char=key; player.hpMax=c.hp; player.hp=Math.min(player.hp, player.hpMax); player.baseSpeed=c.speed; toast(`Personnage: ${c.name}`); updateHP(); }); }
+  }
+});
+
+// Admin
+function openAdmin(){ if(!isAdmin()){ toast("Tu n'as pas accès (admin)"); return; } adminPanel.classList.add('open'); }
+function closeAdmin(){ adminPanel.classList.remove('open'); }
+document.getElementById('closeAdmin').onclick = closeAdmin;
+adminPanel.addEventListener('click', (e)=>{ if(e.target===adminPanel) closeAdmin(); });
+document.getElementById('btnGiveMoney').onclick = ()=>{
+  const who=(document.getElementById('adminPlayerName').value.trim()||profile.name);
+  const amt=Math.max(0, parseInt(document.getElementById('adminMoneyAmount').value||'0'));
+  let bank=db.load('bank',{}); bank[who]=(bank[who]||0)+amt; db.save('bank',bank);
+  if(who===profile.name){ addMoney(amt); }
+  toast(`+${amt}$ à ${who}`);
+};
+document.getElementById('btnApplySpeed').onclick = ()=>{ const v=parseInt(document.getElementById('adminWalkSpeed').value||'220'); profile.speed=v; db.save('profile',profile); player.baseSpeed=v; toast(`Vitesse: ${v}`); };
+document.getElementById('btnSpawnZ').onclick = ()=>{ const n=parseInt(document.getElementById('adminZCount').value||'1'); for(let i=0;i<n;i++) spawnZombie(true); toast(`Zombies x${n}`); };
+document.getElementById('btnKillAll').onclick = ()=>{ state.zombies.length=0; toast('Tous les zombies ont été tués'); };
+document.getElementById('btnSpawnBoss').onclick = ()=>{ const n=parseInt(document.getElementById('adminBCount').value||'1'); for(let i=0;i<n;i++) spawnBoss(); toast(`Boss x${n}`); };
+document.getElementById('btnGrant').onclick = ()=>{ const n=(document.getElementById('adminGrantName').value||'').trim(); if(!n) return; adminList.add(n); saveAdmins(); toast(`${n} est maintenant admin`); };
+document.getElementById('btnRevoke').onclick = ()=>{ const n=(document.getElementById('adminRevokeName').value||'').trim(); if(!n) return; adminList.delete(n); saveAdmins(); toast(`${n} n'est plus admin`); };
+document.getElementById('btnResetBoard').onclick = ()=>{ db.save('board', []); renderBoard(); toast('Classement réinitialisé'); };
+
+// Quêtes (simples)
+function makeQuests(){
+  const pool = [
+    {id:'k5',  text:'Tuer 5 zombies', req:{kills:5},  reward:15},
+    {id:'k10', text:'Tuer 10 zombies', req:{kills:10}, reward:35},
+    {id:'k15', text:'Tuer 15 zombies', req:{kills:15}, reward:60},
+    {id:'win', text:'Gagner la partie', req:{win:true}, reward:100},
+  ];
+  const q=[]; const used=new Set();
+  while(q.length<3){ const i=(Math.random()*pool.length)|0; if(used.has(i)) continue; used.add(i); q.push({...pool[i], done:false, claimed:false}); }
+  return q;
+}
+
+// Simple panneau Quêtes (popup minimal)
+const questsPanel = (function(){
+  const panel = document.createElement('div'); panel.className='panel'; panel.id='questsPanel';
+  panel.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px"><h2 style="margin:0">📜 Quêtes</h2><button id="closeQuests">Fermer</button></div><div class="grid" id="questsGrid"></div></div>`;
+  document.body.appendChild(panel);
+  panel.addEventListener('click', (e)=>{ if(e.target===panel) panel.classList.remove('open'); });
+  panel.querySelector('#closeQuests').onclick = ()=> panel.classList.remove('open');
+  panel.addEventListener('click', (e)=>{
+    if(e.target.tagName==='BUTTON' && e.target.dataset.q){
+      const id=e.target.dataset.q; const q=state.quests.find(x=>x.id===id);
+      if(q && q.done && !q.claimed){ addMoney(q.reward); q.claimed=true; db.save('quests', state.quests); renderQuests(); toast(`Quête récompensée: +$${q.reward}`); }
+    }
+  });
+  function renderQuests(){
+    const g=panel.querySelector('#questsGrid');
+    g.innerHTML = state.quests.map(q=>{
+      const status = q.done? (q.claimed? 'Réclamée' : 'Terminée') : 'En cours';
+      const btn = q.done && !q.claimed ? `<button data-q="${q.id}">Réclamer +$${q.reward}</button>` : '';
+      return `<div class="item"><h4>${q.text}</h4><p>Récompense: $${q.reward}</p><p>Status: ${status}</p>${btn}</div>`;
+    }).join('');
+  }
+  return { open(){ renderQuests(); panel.classList.add('open'); }, render:()=>{} };
+})();
+
+btnQuests.onclick = ()=> questsPanel.open();
+
+// Menu
+btnPlay.onclick = ()=> startNewGame();
+
+/* ========================
+ * World & gameplay
+ * ======================*/
+function spawnZombie(extra=false){
+  const angle = rand(0, Math.PI*2); const r = rand(400, 700);
+  state.zombies.push({x: player.x + Math.cos(angle)*r, y: player.y + Math.sin(angle)*r, r: 16, hp: 120, speed: rand(65,90), t: 0, extra});
+}
+function spawnBoss(){
+  const angle=rand(0,Math.PI*2); const r=rand(600,900);
+  state.bosses.push({x: player.x + Math.cos(angle)*r, y: player.y + Math.sin(angle)*r, r: 28, hp: 900, speed: 70, t: 0});
+}
+function spawnChest(){ const x=rand(200,state.mapSize-200), y=rand(200,state.mapSize-200); state.chests.push({x,y,r:18, opened:false}); }
+
+function autoSpawn(dt){
+  if(state.spawnedZ >= state.targetZ) return;
+  state.autoSpawnTimer += dt;
+  if(state.autoSpawnTimer >= state.autoSpawnInterval){
+    state.autoSpawnTimer = 0;
+    const rest = state.targetZ - state.spawnedZ;
+    const n = Math.min(Math.floor(rand(1, 4)), rest);
+    for(let i=0;i<n;i++){ spawnZombie(false); state.spawnedZ++; }
+  }
+}
+
+/* ========================
+ * Input
+ * ======================*/
+const keys = {};
+addEventListener('keydown', (e)=>{
+  keys[e.key.toLowerCase()] = true;
+  if(e.key==='b' || e.key==='B'){ if(shopPanel.classList.contains('open')) closeShop(); else openShop(); }
+  if(e.key==='p' || e.key==='P'){ if(adminPanel.classList.contains('open')) closeAdmin(); else openAdmin(); }
+  if(e.key==='m' || e.key==='M'){ state.muted = !state.muted; toast(state.muted? 'Sons coupés' : 'Sons activés'); }
+  if(e.code==='Space'){ if(!player.dodging){ player.dodging=true; player.dodgeT=0.25; } }
+});
+addEventListener('keyup', (e)=>{ keys[e.key.toLowerCase()] = false; });
+
+const mouse = {x: W/2, y:H/2, down:false};
+canvas.addEventListener('mousemove', e=>{ mouse.x = e.clientX; mouse.y = e.clientY; });
+canvas.addEventListener('mousedown', ()=> mouse.down=true);
+canvas.addEventListener('mouseup', ()=> mouse.down=false);
+
+/* ========================
+ * Combat
+ * ======================*/
+let shootCooldown = 0;
+function shoot(){
+  const w = weapons[player.weapon];
+  if(shootCooldown>0) return;
+  shootCooldown = 1/w.rof;
+  const ang = Math.atan2(mouse.y - H/2, mouse.x - W/2);
+  const n = w.pellets || 1;
+  for(let i=0;i<n;i++){
+    const spread = (Math.random()-0.5)*2*w.spread;
+    const a = ang + spread;
+    const vx = Math.cos(a)*w.speed, vy=Math.sin(a)*w.speed;
+    state.bullets.push({x: player.x, y: player.y, vx, vy, dmg: w.dmg, life: 1.2});
+  }
+}
+
+/* ========================
+ * Update & Draw
+ * ======================*/
+function update(dt){
+  state.time += dt;
+  if(!state.running) return;
+
+  autoSpawn(dt);
+
+  // Movement ZQSD
+  const spd = player.baseSpeed * (keys['shift']? 1.7 : 1);
+  let ax=0, ay=0; if(keys['z']) ay -= 1; if(keys['s']) ay += 1; if(keys['q']) ax -= 1; if(keys['d']) ax += 1;
+  const len = Math.hypot(ax, ay) || 1; player.vx = (ax/len) * spd; player.vy = (ay/len) * spd;
+
+  if(player.dodging){ player.dodgeT -= dt; if(player.dodgeT<=0){ player.dodging=false; } }
+
+  player.x = clamp(player.x + player.vx*dt, 0, state.mapSize);
+  player.y = clamp(player.y + player.vy*dt, 0, state.mapSize);
+
+  // Shooting
+  if(mouse.down) shoot(); if(shootCooldown>0) shootCooldown -= dt;
+
+  // Bullets
+  state.bullets = state.bullets.filter(b=> (b.life-=dt) > 0);
+  state.bullets.forEach(b=>{ b.x += b.vx*dt; b.y += b.vy*dt; });
+
+  // Zombies & Bosses movement + damage
+  state.zombies.forEach(z=>{
+    z.t += dt; const ang = Math.atan2(player.y - z.y, player.x - z.x);
+    z.x += Math.cos(ang)*z.speed*dt; z.y += Math.sin(ang)*z.speed*dt;
+    if(dist2(z.x,z.y, player.x,player.y) < (z.r+player.r)*(z.r+player.r)){
+      if(!player.dodging){ player.hp -= 20*dt; updateHP(); if(player.hp<=0){ gameOver(); } }
+    }
+  });
+  state.bosses.forEach(b=>{
+    b.t += dt; const ang = Math.atan2(player.y - b.y, player.x - b.x);
+    b.x += Math.cos(ang)*b.speed*dt; b.y += Math.sin(ang)*b.speed*dt;
+    if(dist2(b.x,b.y, player.x,player.y) < (b.r+player.r)*(b.r+player.r)){
+      if(!player.dodging){ player.hp -= 45*dt; updateHP(); if(player.hp<=0){ gameOver(); } }
+    }
+  });
+
+  // Bullet collisions
+  state.bullets.forEach(b=>{
+    for(const z of state.zombies){
+      if(dist2(b.x,b.y,z.x,z.y) < (z.r+2)*(z.r+2)){
+        z.hp -= b.dmg; b.life=0;
+        if(z.hp<=0){ if(!z.extra) state.killsZ++; addMoney(5); checkQuests(); }
+      }
+    }
+    for(const bo of state.bosses){
+      if(dist2(b.x,b.y,bo.x,bo.y) < (bo.r+2)*(bo.r+2)){
+        bo.hp -= b.dmg; b.life=0;
+        if(bo.hp<=0){ addMoney(200); toast('Boss vaincu !'); }
+      }
+    }
+  });
+
+  // Cleanup
+  state.zombies = state.zombies.filter(z=> z.hp>0);
+  state.bosses = state.bosses.filter(b=> b.hp>0);
+
+  // Chests
+  if(keys['e']){
+    for(const c of state.chests){
+      if(!c.opened && dist2(c.x,c.y, player.x,player.y) < (c.r+26)*(c.r+26)){
+        c.opened = true;
+        const roll=Math.random();
+        if(roll < 0.5){ const amt=Math.floor(rand(10,60)); addMoney(amt); toast(`Coffre: +$${amt}`); }
+        else if(roll < 0.8){ addToInventory('Kit Soins'); }
+        else { addToInventory('Grenade'); }
+      }
+    }
+  }
+
+  // Win condition
+  if(state.killsZ >= state.targetZ && state.zombies.length===0){
+    endGame();
+  }
+}
+
+function draw(){
+  // Clear & grid
+  ctx.fillStyle = '#0b1020'; ctx.fillRect(0,0,W,H);
+  ctx.save();
+  const camX = clamp(player.x - W/2, 0, state.mapSize - W);
+  const camY = clamp(player.y - H/2, 0, state.mapSize - H);
+  ctx.translate(-camX, -camY);
+
+  ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1; ctx.beginPath();
+  for(let x=0;x<=state.mapSize;x+=80){ ctx.moveTo(x,0); ctx.lineTo(x,state.mapSize);} 
+  for(let y=0;y<=state.mapSize;y+=80){ ctx.moveTo(0,y); ctx.lineTo(state.mapSize,y);} 
+  ctx.stroke();
+
+  // Chests
+  for(const c of state.chests){ ctx.fillStyle = c.opened? '#4b5563' : '#f59e0b'; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.fill(); if(!c.opened){ ctx.fillStyle='#00000088'; ctx.fillRect(c.x-10, c.y-4, 20, 8); } }
+
+  // Bullets
+  ctx.fillStyle = '#93c5fd'; for(const b of state.bullets){ ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2); ctx.fill(); }
+
+  // Zombies
+  for(const z of state.zombies){ ctx.fillStyle = '#16a34a'; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI*2); ctx.fill(); }
+
+  // Bosses
+  for(const b of state.bosses){ ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill(); }
+
+  // Player (simple cercle 2D)
+  ctx.fillStyle = player.dodging ? '#f472b6' : '#60a5fa'; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
+
+  // Aim line
+  ctx.strokeStyle='#1d4ed8'; ctx.beginPath(); const ang = Math.atan2(mouse.y - H/2, mouse.x - W/2); ctx.moveTo(player.x, player.y); ctx.lineTo(player.x + Math.cos(ang)*60, player.y + Math.sin(ang)*60); ctx.stroke();
+
+  ctx.restore();
+}
+
+function loop(t){ if(!loop.last) loop.last = t; const dt = Math.min(0.033, (t - loop.last)/1000); loop.last = t; update(dt); draw(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+/* ========================
+ * Flow
+ * ======================*/
+function startNewGame(){
+  // Reset état
+  state.zombies.length=0; state.bosses.length=0; state.bullets.length=0;
+  state.killsZ=0; state.spawnedZ=0; state.time=0; state.autoSpawnTimer=0;
+  state.phase='playing'; state.running=true;
+
+  // $ au début de partie (argent persistant, on ne remet pas à 10 si tu as plus)
+  if((profile.money|0) < 10) setMoney(10);
+
+  // Joueur & inventaire de départ
+  player.inv = []; addToInventory('Gun'); player.weapon='gun';
+  player.hp = player.hpMax; updateHP();
+  player.x = rand(400, state.mapSize-400); player.y = rand(400, state.mapSize-400);
+
+  // Coffres random
+  state.chests = []; const chestCount = Math.floor(rand(5,9)); for(let i=0;i<chestCount;i++) spawnChest();
+
+  // Quêtes aléatoires
+  state.quests = makeQuests(); db.save('quests', state.quests);
+
+  // Spawns initiaux
+  const n0 = Math.min(5, state.targetZ);
+  for(let i=0;i<n0;i++){ spawnZombie(false); state.spawnedZ++; }
+
+  // Fermer menu
+  document.getElementById('menu').style.display='none';
+}
+
+function endGame(){
+  state.running = false;
+  toast('🎉 Victoire ! 20 zombies éliminés');
+  pushBoardEntry(profile.name, state.killsZ, profile.money|0);
+  renderBoard();
+  document.getElementById('menu').style.display='block';
+}
+
+function gameOver(){
+  state.running = false;
+  toast('💀 Tu es mort !');
+  pushBoardEntry(profile.name, state.killsZ, profile.money|0);
+  renderBoard();
+  document.getElementById('menu').style.display='block';
+}
+
+// Leaderboard
+function pushBoardEntry(name, kills, money){
+  const board = db.load('board', []);
+  board.push({name, kills, money, ts: Date.now()});
+  board.sort((a,b)=> b.kills - a.kills || b.money - a.money || a.ts - b.ts);
+  db.save('board', board.slice(0, 20));
+  renderBoard();
+}
+function renderBoard(){
+  const body = document.getElementById('boardBody');
+  const board = db.load('board', []);
+  body.innerHTML = board.map(row=>`<tr><td>${row.name}</td><td>${row.kills}</td><td>${row.money}</td></tr>`).join('');
+}
+
+// Init
+function init(){ updateHP(); updateMoney(); renderInventory(); renderBoard(); }
+init();
+</script>
+</body>
+</html>
