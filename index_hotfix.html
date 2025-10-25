@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ZombieShooter — Hotfix</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  body::before{content:"";position:fixed;inset:0;background-image:url('https://images.unsplash.com/photo-1606112219348-204d7d8b94ee?auto=format&fit=crop&w=1600&q=70');background-size:cover;background-position:center;filter:brightness(.35);animation:pan 60s linear infinite;z-index:-1}
+  @keyframes pan{0%{background-position:center}50%{background-position:top right}100%{background-position:center}}
+  /* Login */
+  #login{position:absolute;inset:0;display:grid;place-items:center;background:#0008;backdrop-filter:blur(2px)}
+  #login .card{background:#0b1220;border:1px solid #1f2a44;border-radius:16px;padding:18px;width:min(520px,92vw)}
+  .row{display:grid;grid-template-columns:1fr auto;gap:8px}
+  input{padding:10px 12px;border-radius:10px;border:1px solid #2b3b56;background:#0f172a;color:#e5e7eb}
+  .btn{padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#111827;color:#e5e7eb;cursor:pointer}
+  /* Menu */
+  .menu{position:absolute;inset:0;display:none;place-items:center}
+  .menu.open{display:grid}
+  .menuCard{background:#0b1220cc;border:1px solid #1f2a44;border-radius:18px;padding:22px;width:min(760px,92vw);text-align:center;box-shadow:0 30px 60px #000a}
+  h1.title{margin:0 0 8px;font-size:40px;color:#f43f5e;text-shadow:0 0 16px #f43f5e66}
+  .menuBtns{position:relative;height:220px}
+  .mbtn{position:absolute;padding:10px 14px;border-radius:12px;background:#111827;border:1px solid #334155;color:#e5e7eb;cursor:pointer}
+  #btnMenuPlay{right:8px;bottom:8px}
+  #btnMenuQuests{left:8px;bottom:8px}
+  #btnMenuSkins{left:8px;top:50%;transform:translateY(-50%)}
+  #btnMenuShop{left:8px;top:calc(50% + 58px);transform:translateY(-50%)}
+  #btnMenuClub{right:8px;top:50%;transform:translateY(-50%)}
+  #btnMenuTrophies{left:8px;top:8px}
+  /* HUD */
+  .hud{position:absolute;pointer-events:none;z-index:5}
+  #hpPanel{left:10px;top:10px;width:240px;background:#0b1220cc;border:1px solid #1f2a44;border-radius:12px;padding:10px}
+  #hpBarWrap{height:12px;background:#111827;border-radius:999px;overflow:hidden}
+  #hpBar{height:100%;width:100%;background:linear-gradient(90deg,#34d399,#22c55e,#16a34a)}
+  #hpText{margin-top:6px;font-size:14px}
+  #rightPanel{right:10px;top:10px;width:260px;background:#0b1220cc;border:1px solid #1f2a44;border-radius:12px;padding:10px}
+  .sectionTitle{font-size:12px;color:#a1a1aa;text-transform:uppercase;letter-spacing:.12em;margin:4px 0 6px}
+  #inventory{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .slot{aspect-ratio:1/1;border:1px dashed #334155;border-radius:10px;display:grid;place-items:center;font-size:12px;background:#0f172a}
+  .slot.filled{border-style:solid;border-color:#475569}
+  #hints{left:10px;bottom:10px;background:#0b1220cc;border:1px solid #1f2a44;border-radius:12px;padding:8px 10px;font-size:12px;max-width:90vw}
+  #board{right:10px;bottom:10px;background:#0b1220cc;border:1px solid #1f2a44;border-radius:12px;padding:8px 10px;font-size:12px;max-width:300px}
+  #board table{width:100%;border-collapse:collapse}
+  #board th,#board td{padding:4px 6px;border-bottom:1px solid #1f2937;text-align:left}
+  /* Panels (only shop placeholder for now) */
+  .panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#000a;z-index:10}
+  .panel.open{display:flex}
+  .card{background:#0b1220;border:1px solid #1f2a44;border-radius:16px;padding:16px;width:min(960px,92vw);max-height:86vh;overflow:auto}
+  /* Canvas */
+  #game{position:absolute;inset:0;z-index:0}
+  /* Toast */
+  #toast{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:grid;gap:8px;z-index:20}
+  .toast{background:#111827;border:1px solid #334155;padding:8px 10px;border-radius:10px;min-width:220px;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="card">
+    <h2>🧟 ZombieShooter</h2>
+    <p style="margin-top:0;color:#a1a1aa">Entre ton pseudo pour commencer</p>
+    <div class="row">
+      <input id="nameInput" placeholder="Ton pseudo...">
+      <button id="btnLogin" class="btn">Commencer</button>
+    </div>
+    <details style="margin-top:8px">
+      <summary>Connexion admin</summary>
+      <div class="row" style="margin-top:8px">
+        <input id="adminCode" type="password" placeholder="Code admin">
+        <button id="btnAdminClaim" class="btn">Activer</button>
+      </div>
+      <p style="color:#a1a1aa;font-size:12px;margin:6px 0 0">Réservé au propriétaire (code secret).</p>
+    </details>
+  </div>
+</div>
+
+<!-- MENU -->
+<div id="menu" class="menu">
+  <div class="menuCard">
+    <h1 class="title">ZombieShooter</h1>
+    <p style="margin:0 0 14px;color:#a1a1aa">Élimine 20 zombies • Coffres aléatoires • Gagne des pièces</p>
+    <div class="menuBtns">
+      <button id="btnMenuPlay" class="mbtn">Jouer ▶</button>
+      <button id="btnMenuQuests" class="mbtn" style="left:8px;bottom:8px">Quêtes 📜</button>
+      <button id="btnMenuSkins" class="mbtn" style="left:8px;top:50%;transform:translateY(-50%)">Skins 🎭</button>
+      <button id="btnMenuShop" class="mbtn" style="left:8px;top:calc(50% + 58px);transform:translateY(-50%)">Boutique 🛒</button>
+      <button id="btnMenuClub" class="mbtn" style="right:8px;top:50%;transform:translateY(-50%)">Club 👥</button>
+      <button id="btnMenuTrophies" class="mbtn" style="left:8px;top:8px">Route des trophées 🏆</button>
+      <button id="btnMenuPlay2" class="mbtn" style="right:8px;bottom:8px">Jouer ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shop placeholder -->
+<div id="shopPanel" class="panel"><div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+    <h3 style="margin:0">🛒 Boutique</h3><button id="closeShop" class="btn">Fermer</button>
+  </div>
+  <p>La boutique détaillée reviendra après le hotfix. Le jeu reste jouable.</p>
+</div></div>
+
+<!-- HUD -->
+<div class="hud" id="hpPanel">
+  <div class="sectionTitle">Points de Vie</div>
+  <div id="hpBarWrap"><div id="hpBar"></div></div>
+  <div id="hpText">1000 / 1000</div>
+</div>
+
+<div class="hud" id="rightPanel">
+  <div class="sectionTitle">Inventaire (5)</div>
+  <div id="inventory"></div>
+  <div id="money">💰 0</div>
+  <div id="tr">🏆 TR: 0</div>
+  <div class="sectionTitle">Raccourcis</div>
+  <div style="font-size:12px;color:#a1a1aa">Boutique: <b>B</b> • Admin: <b>P</b> • M: sons</div>
+</div>
+
+<div class="hud" id="hints">
+  <div style="font-weight:700;margin-bottom:4px">Contrôles (PC)</div>
+  ZQSD = déplacer • Souris = viser • Clic = tirer • E = coffre • B = Boutique • Shift = courir • Espace = saut • M = mute
+</div>
+
+<div class="hud" id="board">
+  <div style="font-weight:700;margin-bottom:6px">🏆 Classement (local)</div>
+  <table>
+    <thead><tr><th>Joueur</th><th>Kills</th><th>$</th></tr></thead>
+    <tbody id="boardBody"></tbody>
+  </table>
+</div>
+
+<canvas id="game"></canvas>
+<div id="toast"></div>
+
+<script>
+/*********** Storage & profile ***********/
+const db={load:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},save:(k,v)=>{localStorage.setItem(k,JSON.stringify(v))}};
+const MASTER_ADMIN_NAME="Nael424"; const MASTER_ADMIN_CODE="NAEL-ADMIN-424";
+let profile=db.load('profile',null); let adminList=new Set(db.load('adminList',[]));
+function isAdmin(){ return adminList.has(profile?.name); }
+function grantAdmin(n){ adminList.add(n); db.save('adminList',Array.from(adminList)); }
+
+/*********** UI helpers ***********/
+function toast(msg,ms=1600){const box=document.getElementById('toast');const el=document.createElement('div');el.className='toast';el.textContent=msg;box.appendChild(el);setTimeout(()=>el.remove(),ms);}
+function openMenu(){ document.getElementById('login').style.display='none'; document.getElementById('menu').classList.add('open'); }
+function closeMenu(){ document.getElementById('menu').classList.remove('open'); }
+function openPanel(id){ document.getElementById(id).classList.add('open'); }
+function closePanel(id){ document.getElementById(id).classList.remove('open'); }
+
+/*********** Login ***********/
+const nameInput=document.getElementById('nameInput'); const btnLogin=document.getElementById('btnLogin');
+const adminCodeInput=document.getElementById('adminCode'); const btnAdminClaim=document.getElementById('btnAdminClaim');
+if(profile&&profile.name){ openMenu(); } else { document.getElementById('login').style.display='grid'; }
+btnLogin.onclick=()=>{ const name=(nameInput.value||'').trim(); if(!name){toast('Entre un pseudo'); return;} profile={name,money:10,tr:0,best:{kills:0,money:0},speed:220,skins:{owned:['default'],current:'default'}}; db.save('profile',profile); openMenu(); toast('Bienvenue, '+name+' !'); };
+btnAdminClaim.onclick=()=>{ if(!profile||profile.name!==MASTER_ADMIN_NAME){toast('Accès propriétaire requis'); return;} const code=(adminCodeInput.value||'').trim(); if(code!==MASTER_ADMIN_CODE){toast('Code invalide'); return;} grantAdmin(profile.name); toast('Admin activé'); };
+
+/*********** Canvas & game state ***********/
+const canvas=document.getElementById('game'); const ctx=canvas.getContext('2d'); function resize(){canvas.width=innerWidth;canvas.height=innerHeight;} addEventListener('resize',resize); resize();
+const state={phase:'menu',mapSize:2800,time:0,zombies:[],bullets:[],chests:[],kills:0,spawned:0,target:20,autoT:0};
+const player={x:1400,y:1400,r:16,hp:1000,hpMax:1000,speed:220,weapon:{dmg:20,rof:4,speed:700,spread:0.02},vx:0,vy:0};
+const keys={}; addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true; if(e.key==='b'||e.key==='B'){openPanel('shopPanel');}}); addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+const mouse={x:0,y:0,down:false}; canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY}); canvas.addEventListener('mousedown',()=>mouse.down=true); canvas.addEventListener('mouseup',()=>mouse.down=false);
+
+/*********** HUD updates ***********/
+const hpBar=document.getElementById('hpBar'), hpText=document.getElementById('hpText'), moneyEl=document.getElementById('money'), trEl=document.getElementById('tr'), invEl=document.getElementById('inventory');
+function updateHP(){ hpBar.style.width=`${(player.hp/player.hpMax)*100}%`; hpText.textContent=`${Math.ceil(player.hp)} / ${player.hpMax}`; }
+function updateMoney(){ moneyEl.textContent='💰 '+(profile?.money||0); }
+function renderInventory(){ invEl.innerHTML=''; for(let i=0;i<5;i++){ const s=document.createElement('div'); s.className='slot'+(i===0?' filled':''); s.textContent= i===0 ? 'Gun' : '+'; invEl.appendChild(s);} }
+function renderTR(){ trEl.textContent='🏆 TR: '+(profile?.tr||0); }
+function pushBoard(name,kills,money){ const board=db.load('board',[]); board.push({name,kills,money,ts:Date.now()}); board.sort((a,b)=> b.kills-a.kills || b.money-a.money || a.ts-b.ts); db.save('board',board.slice(0,20)); document.getElementById('boardBody').innerHTML=board.map(r=>`<tr><td>${r.name}</td><td>${r.kills}</td><td>${r.money}</td></tr>`).join(''); }
+
+/*********** Game helpers ***********/
+const rand=(a,b)=>Math.random()*(b-a)+a; const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)); const d2=(x1,y1,x2,y2)=>{const dx=x2-x1,dy=y2-y1; return dx*dx+dy*dy;}
+function spawnZombie(){ const a=rand(0,Math.PI*2),r=rand(400,700); state.zombies.push({x:player.x+Math.cos(a)*r,y:player.y+Math.sin(a)*r,r:16,hp:120,speed:rand(65,90)}); }
+function spawnChest(){ const x=rand(200,state.mapSize-200), y=rand(200,state.mapSize-200); state.chests.push({x,y,r:18,opened:false}); }
+function startNewGame(){ state.phase='playing'; state.zombies.length=0; state.bullets.length=0; state.chests.length=0; state.kills=0; state.spawned=0; state.autoT=0; player.x=rand(400,state.mapSize-400); player.y=rand(400,state.mapSize-400); for(let i=0;i<5;i++) spawnChest(); for(let i=0;i<5;i++){spawnZombie(); state.spawned++;} updateHP(); updateMoney(); renderTR(); renderInventory(); closeMenu(); }
+window.startNewGame=startNewGame; // expose for console if needed
+
+/*********** Menu buttons ***********/
+document.getElementById('btnMenuPlay').onclick=()=>startNewGame();
+document.getElementById('btnMenuPlay2').onclick=()=>startNewGame();
+document.getElementById('btnMenuShop').onclick=()=>openPanel('shopPanel');
+document.getElementById('closeShop').onclick=()=>closePanel('shopPanel');
+
+/*********** Loop ***********/
+let shootCd=0;
+function shoot(){ if(shootCd>0) return; shootCd=1/player.weapon.rof; const ang=Math.atan2(mouse.y-canvas.height/2,mouse.x-canvas.width/2); const a=ang+(Math.random()-.5)*2*player.weapon.spread; const vx=Math.cos(a)*player.weapon.speed, vy=Math.sin(a)*player.weapon.speed; state.bullets.push({x:player.x,y:player.y,vx,vy,life:1.2,dmg:player.weapon.dmg}); }
+function update(dt){
+  if(state.phase!=='playing') return;
+  // spawn over time
+  state.autoT+=dt; if(state.spawned<state.target && state.autoT>=3){ state.autoT=0; const n=Math.min(((Math.random()*3)|0)+1, state.target-state.spawned); for(let i=0;i<n;i++){ spawnZombie(); state.spawned++; } }
+  // movement
+  const run = keys['shift']?1.7:1; let ax=0,ay=0; if(keys['z']) ay-=1; if(keys['s']) ay+=1; if(keys['q']) ax-=1; if(keys['d']) ax+=1; const len=Math.hypot(ax,ay)||1; player.vx=(ax/len)*player.speed*run; player.vy=(ay/len)*player.speed*run; player.x=clamp(player.x+player.vx*dt,0,state.mapSize); player.y=clamp(player.y+player.vy*dt,0,state.mapSize);
+  // shooting
+  if(mouse.down) shoot(); if(shootCd>0) shootCd-=dt;
+  // bullets
+  state.bullets=state.bullets.filter(b=>(b.life-=dt)>0); state.bullets.forEach(b=>{ b.x+=b.vx*dt; b.y+=b.vy*dt; });
+  // zombies follow
+  state.zombies.forEach(z=>{ const a=Math.atan2(player.y-z.y,player.x-z.x); z.x+=Math.cos(a)*z.speed*dt; z.y+=Math.sin(a)*z.speed*dt; if(d2(z.x,z.y,player.x,player.y)<(z.r+player.r)**2){ player.hp-=20*dt; if(player.hp<=0){ endGame(false); } updateHP(); } });
+  // bullet hits
+  state.bullets.forEach(b=>{ for(const z of state.zombies){ if(z.hp>0 && d2(b.x,b.y,z.x,z.y)<(z.r+2)**2){ z.hp-=b.dmg; b.life=0; if(z.hp<=0){ state.kills++; profile.money=(profile.money||0)+5; updateMoney(); } } } });
+  state.zombies=state.zombies.filter(z=>z.hp>0);
+  // win condition
+  if(state.kills>=state.target && state.zombies.length===0){ endGame(true); }
+}
+function draw(){
+  const W=canvas.width, H=canvas.height;
+  ctx.fillStyle='#0b1020'; ctx.fillRect(0,0,W,H);
+  // camera
+  const camX=clamp(player.x-W/2,0,state.mapSize-W); const camY=clamp(player.y-H/2,0,state.mapSize-H); ctx.save(); ctx.translate(-camX,-camY);
+  // grid
+  ctx.strokeStyle='#0f172a'; ctx.lineWidth=1; ctx.beginPath(); for(let x=0;x<=state.mapSize;x+=80){ctx.moveTo(x,0);ctx.lineTo(x,state.mapSize);} for(let y=0;y<=state.mapSize;y+=80){ctx.moveTo(0,y);ctx.lineTo(state.mapSize,y);} ctx.stroke();
+  // chests
+  for(const c of state.chests){ ctx.fillStyle=c.opened?'#4b5563':'#f59e0b'; ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
+  // bullets
+  ctx.fillStyle='#93c5fd'; for(const b of state.bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,2,0,Math.PI*2); ctx.fill(); }
+  // zombies
+  ctx.fillStyle='#16a34a'; for(const z of state.zombies){ ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,Math.PI*2); ctx.fill(); }
+  // player
+  ctx.fillStyle='#60a5fa'; ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function loop(t){ if(!loop.last) loop.last=t; const dt=Math.min(.033,(t-loop.last)/1000); loop.last=t; update(dt); draw(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+function endGame(win){ state.phase='menu'; pushBoard(profile.name||'Joueur', state.kills, profile.money||0); toast(win?'🎉 Victoire !':'💀 Défaite'); openMenu(); player.hp=player.hpMax; updateHP(); }
+
+/*********** Safety: auto-open menu if black ***********/
+setTimeout(()=>{ if(!document.getElementById('menu').classList.contains('open') && (!profile||!profile.name)) { document.getElementById('login').style.display='grid'; } }, 200);
+
+/*********** Mouse fire binding ***********/
+canvas.addEventListener('mousedown',()=>{ mouse.down=true; if(state.phase!=='playing'){ startNewGame(); } });
+canvas.addEventListener('mouseup',()=>mouse.down=false);
+
+updateHP(); updateMoney(); renderInventory(); renderTR();
+
+</script>
+</body>
+</html>
