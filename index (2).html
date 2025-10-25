@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>ZombieShooter</title>
+  <style>
+    html, body { margin:0; height:100%; overflow:hidden; background:#000; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    /* Animated apocalypse background */
+    body::before {
+      content:""; position:fixed; inset:0;
+      background-image:url('https://images.unsplash.com/photo-1606112219348-204d7d8b94ee?auto=format&fit=crop&w=1600&q=70');
+      background-size:cover; background-position:center;
+      filter: brightness(.35) contrast(1.05) saturate(.9);
+      animation: pan 60s linear infinite;
+      z-index:-1;
+    }
+    @keyframes pan {
+      0% { background-position:center center; }
+      50% { background-position: top right; }
+      100% { background-position:center center; }
+    }
+
+    /* MENU */
+    .menu {
+      position:absolute; inset:0; display:none; place-items:center;
+    }
+    .menu.open { display:grid; }
+    .menuCard {
+      background:#0b1220cc; border:1px solid #1f2a44; border-radius:18px;
+      padding:24px; width:min(760px,92vw); text-align:center;
+      box-shadow:0 30px 60px #000a;
+    }
+    h1.title { margin:0 0 8px; font-size:42px; color:#f43f5e; text-shadow:0 0 16px #f43f5e66; }
+    p.subtitle { margin:0 0 16px; color:#a1a1aa; }
+
+    .menuButtons { position:relative; width:min(760px,92vw); }
+    .btn {
+      position:absolute; padding:10px 14px; border-radius:12px;
+      background:#111827; border:1px solid #334155; color:#e5e7eb; cursor:pointer;
+    }
+    #btnMenuPlay { right:8px; bottom:8px; }
+    #btnMenuQuests { left:8px; bottom:8px; }
+    #btnMenuSkins { left:8px; top:50%; transform:translateY(-50%); }
+    #btnMenuShop { left:8px; top:calc(50% + 58px); transform:translateY(-50%); }
+    #btnMenuClub { right:8px; top:50%; transform:translateY(-50%); }
+    #btnMenuTrophies { left:8px; top:8px; }
+    #btnMenuAdminLogin { right:8px; top:8px; }
+
+    /* LOGIN */
+    #login {
+      position:absolute; inset:0; display:grid; place-items:center;
+      background:#00000088; backdrop-filter: blur(2px);
+    }
+    #login .card { background:#0b1220; border:1px solid #1f2a44; border-radius:16px; padding:20px; width:min(520px,92vw); }
+    #login h2 { margin:0 0 10px; }
+    .row { display:grid; grid-template-columns:1fr auto; gap:10px; }
+    input[type=text], input[type=password] {
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2b3b56; background:#0f172a; color:#e5e7eb;
+    }
+    .primary { padding:10px 16px; border-radius:10px; border:1px solid #334155; background:#111827; color:#e5e7eb; cursor:pointer; }
+    .danger { background:#7f1d1d; border-color:#991b1b; }
+    .success { background:#064e3b; border-color:#065f46; }
+
+    /* HUD */
+    .hud { position:absolute; pointer-events:none; z-index:10; }
+    #hpPanel { left:10px; top:10px; width:240px; background:#0b1220cc; border:1px solid #1f2a44; border-radius:12px; padding:10px; }
+    #hpBarWrap { height:12px; background:#111827; border-radius:999px; overflow:hidden; }
+    #hpBar { height:100%; width:100%; background:linear-gradient(90deg,#34d399,#22c55e,#16a34a); }
+    #hpText { margin-top:6px; font-size:14px; }
+
+    #rightPanel { right:10px; top:10px; width:280px; background:#0b1220cc; border:1px solid #1f2a44; border-radius:12px; padding:10px; }
+    .sectionTitle { font-size:12px; color:#a1a1aa; text-transform:uppercase; letter-spacing:.12em; margin:4px 0 6px; }
+    #inventory { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+    .slot { aspect-ratio:1/1; border:1px dashed #334155; border-radius:10px; display:grid; place-items:center; font-size:12px; background:#0f172a; }
+    .slot.filled { border-style:solid; border-color:#475569; }
+    #money, #tr { font-weight:700; }
+
+    #hints { left:10px; bottom:10px; background:#0b1220cc; border:1px solid #1f2a44; border-radius:12px; padding:8px 10px; font-size:12px; max-width:90vw; }
+
+    #board { right:10px; bottom:10px; background:#0b1220cc; border:1px solid #1f2a44; border-radius:12px; padding:8px 10px; font-size:12px; max-width:300px; }
+    #board table { width:100%; border-collapse:collapse; }
+    #board th, #board td { padding:4px 6px; border-bottom:1px solid #1f2937; text-align:left; }
+
+    /* PANELS */
+    .panel { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:#000a; z-index:20; }
+    .panel.open { display:flex; }
+    .card { background:#0b1220; border:1px solid #1f2a44; border-radius:16px; padding:16px; width:min(960px,92vw); max-height:86vh; overflow:auto; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+    .item { background:#0f172a; border:1px solid #1f2a44; border-radius:12px; padding:12px; }
+    .item h4 { margin:0 0 6px; }
+    .item p { margin:0 0 8px; color:#a1a1aa; font-size:12px; }
+    .item button { width:100%; padding:8px 10px; border-radius:10px; border:1px solid #334155; background:#111827; color:#e5e7eb; cursor:pointer; }
+
+    /* CANVAS */
+    #game { position:absolute; inset:0; z-index:0; }
+
+    /* TOAST */
+    #toast { position:absolute; top:12px; left:50%; transform:translateX(-50%); display:grid; gap:8px; z-index:30; }
+    .toast { background:#111827; border:1px solid #334155; padding:8px 10px; border-radius:10px; min-width:220px; text-align:center; }
+
+    /* MOBILE CONTROLS */
+    #touchControls { position:absolute; inset:0; pointer-events:none; z-index:12; display:none; }
+    #joyArea { position:absolute; left:10px; bottom:10px; width:140px; height:140px; border-radius:50%; background:#0b122066; border:1px solid #1f2a44; }
+    #joyStick { position:absolute; left:40px; bottom:40px; width:60px; height:60px; border-radius:50%; background:#111827cc; border:1px solid #334155; }
+    #btnsRight { position:absolute; right:10px; bottom:10px; display:grid; gap:8px; pointer-events:auto; }
+    .tbtn { padding:12px 14px; border-radius:12px; background:#111827cc; border:1px solid #334155; color:#e5e7eb; font-weight:700; pointer-events:auto; }
+    #btnQuit { position:absolute; right:10px; top:10px; padding:8px 12px; border-radius:10px; background:#7f1d1dcc; border:1px solid #991b1bcc; color:#fff; pointer-events:auto; }
+
+    @media (max-width: 900px) {
+      #touchControls { display:block; }
+      #hints { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login">
+    <div class="card">
+      <h2>🧟 ZombieShooter</h2>
+      <p class="subtitle">Entre ton pseudo pour commencer</p>
+      <div class="row" style="grid-template-columns:1fr auto;">
+        <input id="nameInput" type="text" placeholder="Ton pseudo..." />
+        <button id="btnLogin" class="primary">Commencer</button>
+      </div>
+      <details style="margin-top:10px;">
+        <summary>Connexion admin</summary>
+        <div class="row" style="margin-top:8px;">
+          <input id="adminCode" type="password" placeholder="Code admin (laisser vide si joueur)" />
+          <button id="btnAdminClaim" class="primary">Activer</button>
+        </div>
+        <p class="subtitle" style="margin:8px 0 0">Seul le propriétaire connaît le code. Ne le partage pas.</p>
+      </details>
+    </div>
+  </div>
+
+  <!-- MENU -->
+  <div id="menu" class="menu">
+    <div class="menuCard">
+      <h1 class="title">ZombieShooter</h1>
+      <p class="subtitle">Élimine 20 zombies • Coffres aléatoires • Gagne des pièces et des trophées</p>
+      <div class="menuButtons" style="height:220px;">
+        <button id="btnMenuPlay" class="btn">Jouer ▶</button>
+        <button id="btnMenuQuests" class="btn">Quêtes 📜</button>
+        <button id="btnMenuSkins" class="btn">Skins 🎭</button>
+        <button id="btnMenuShop" class="btn">Boutique 🛒</button>
+        <button id="btnMenuClub" class="btn">Club 👥</button>
+        <button id="btnMenuTrophies" class="btn">Route des trophées 🏆</button>
+        <button id="btnMenuAdminLogin" class="btn">Admin 🔒</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANELS -->
+  <div id="shopPanel" class="panel"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">🛒 Boutique</h3><button class="primary" id="closeShop">Fermer</button>
+    </div>
+    <div class="sectionTitle">Armes</div>
+    <div id="shopWeapons" class="grid"></div>
+    <div class="sectionTitle" style="margin-top:10px;">Personnages</div>
+    <div id="shopChars" class="grid"></div>
+  </div></div>
+
+  <div id="skinsPanel" class="panel"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">🎭 Skins</h3><button class="primary" id="closeSkins">Fermer</button>
+    </div>
+    <div id="skinsGrid" class="grid"></div>
+  </div></div>
+
+  <div id="questsPanel" class="panel"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">📜 Quêtes</h3><button class="primary" id="closeQuests">Fermer</button>
+    </div>
+    <div id="questsGrid" class="grid"></div>
+  </div></div>
+
+  <div id="clubPanel" class="panel"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">👥 Club / Multijoueur (à venir)</h3><button class="primary" id="closeClub">Fermer</button>
+    </div>
+    <div class="item">
+      <h4>Rejoindre un salon</h4>
+      <div class="row"><input id="roomCode" type="text" placeholder="Code salon" /><button class="primary" id="btnJoinRoom">Rejoindre</button></div>
+      <p class="subtitle">Prototype : nécessite un serveur WebSocket. UI prête.</p>
+    </div>
+  </div></div>
+
+  <div id="trophiesPanel" class="panel"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">🏆 Route des trophées</h3><button class="primary" id="closeTrophies">Fermer</button>
+    </div>
+    <div id="trophyInfo"></div>
+  </div></div>
+
+  <div id="adminPanel" class="panel"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">🛠️ Admin</h3><button class="primary" id="closeAdmin">Fermer</button>
+    </div>
+    <div class="grid">
+      <div class="item">
+        <h4>Donner de l'argent</h4>
+        <div class="row"><input id="adminPlayer" placeholder="Pseudo (optionnel)" /><input id="adminMoney" type="number" value="100" min="0" step="10" /><button class="primary" id="btnGiveMoney">Give</button></div>
+      </div>
+      <div class="item">
+        <h4>Ajouter un admin</h4>
+        <div class="row"><input id="adminNew" placeholder="Pseudo" /><button class="primary" id="btnAddAdmin">Ajouter</button></div>
+      </div>
+      <div class="item">
+        <h4>Vitesse de marche</h4>
+        <div class="row"><input id="walkSpeed" type="range" min="100" max="500" value="220" /><button class="primary" id="btnApplySpeed">Appliquer</button></div>
+      </div>
+      <div class="item">
+        <h4>Spawns</h4>
+        <div class="row"><input id="zCount" type="number" min="1" value="5" /><button class="primary" id="btnSpawnZ">Spawn Zombies</button></div>
+        <div class="row" style="margin-top:8px"><input id="bCount" type="number" min="1" value="1" /><button class="primary" id="btnSpawnBoss">Spawn Boss</button></div>
+        <div class="row" style="margin-top:8px"><button class="danger" id="btnKillAll">Tuer tous les zombies</button></div>
+      </div>
+      <div class="item">
+        <h4>Classement</h4>
+        <div class="row"><button class="danger" id="btnResetBoard">Réinitialiser</button></div>
+      </div>
+    </div>
+    <p class="subtitle" style="margin-top:10px;">Accès réservé aux admins. Les données sont locales (navigateur).</p>
+  </div></div>
+
+  <!-- HUD -->
+  <div class="hud" id="hpPanel">
+    <div class="sectionTitle">Points de Vie</div>
+    <div id="hpBarWrap"><div id="hpBar"></div></div>
+    <div id="hpText">1000 / 1000</div>
+  </div>
+
+  <div class="hud" id="rightPanel">
+    <div class="sectionTitle">Inventaire (5)</div>
+    <div id="inventory"></div>
+    <div id="money">💰 0</div>
+    <div id="tr">🏆 TR: 0</div>
+    <div class="sectionTitle">Raccourcis</div>
+    <div style="font-size:12px;color:#a1a1aa">Boutique: <b>B</b> • Admin: <b>P</b> • M: sons</div>
+  </div>
+
+  <div class="hud" id="hints">
+    <div style="font-weight:700; margin-bottom:4px;">Contrôles (PC)</div>
+    ZQSD = déplacer • Souris = viser • Clic = tirer • E = coffre • B = Boutique • P = Admin • Shift = courir • Espace = saut • M = mute
+  </div>
+
+  <div class="hud" id="board">
+    <div style="font-weight:700; margin-bottom:6px;">🏆 Classement (local)</div>
+    <table>
+      <thead><tr><th>Joueur</th><th>Kills</th><th>$</th></tr></thead>
+      <tbody id="boardBody"></tbody>
+    </table>
+  </div>
+
+  <!-- MOBILE CONTROLS -->
+  <div id="touchControls">
+    <div id="joyArea"></div>
+    <div id="joyStick"></div>
+    <div id="btnsRight">
+      <button id="btnFire" class="tbtn">🔫 Tirer</button>
+      <button id="btnRun" class="tbtn">🏃 Courir</button>
+      <button id="btnJump" class="tbtn">🪂 Sauter</button>
+    </div>
+    <button id="btnQuit">Quitter</button>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <div id="toast"></div>
+
+  <script>
+    /********************
+     * STORAGE & PROFILE
+     ********************/
+    const db = {
+      load(k, d){ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+      save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+    };
+    const toastBox = document.getElementById('toast');
+    function toast(msg, ms=1600){ const el=document.createElement('div'); el.className='toast'; el.textContent=msg; toastBox.appendChild(el); setTimeout(()=>el.remove(), ms); }
+
+    const login = document.getElementById('login');
+    const nameInput = document.getElementById('nameInput');
+    const btnLogin = document.getElementById('btnLogin');
+    const adminCodeInput = document.getElementById('adminCode');
+    const btnAdminClaim = document.getElementById('btnAdminClaim');
+
+    const MASTER_ADMIN_NAME = "Nael424";
+    const MASTER_ADMIN_CODE = "NAEL-ADMIN-424"; // Change-le si tu veux
+
+    let profile = db.load('profile', null);
+    let adminList = new Set(db.load('adminList', []));
+
+    function isAdmin(){ return adminList.has(profile?.name); }
+    function grantAdmin(name){ adminList.add(name); db.save('adminList', Array.from(adminList)); }
+
+    function ensureLoginUI(){
+      if(profile && profile.name){
+        login.style.display = 'none';
+        openMenu();
+      } else {
+        login.style.display = 'grid';
+      }
+    }
+
+    btnLogin.onclick = () => {
+      const name = (nameInput.value||"").trim();
+      if(!name){ toast("Entre un pseudo"); return; }
+      profile = db.save('profile', { name, money:10, tr:0, best:{kills:0,money:0}, speed:220, skins:{owned:['default'], current:'default'} }) || { name, money:10, tr:0, best:{}, speed:220, skins:{owned:['default'], current:'default'} };
+      profile = db.load('profile', profile);
+      toast("Bienvenue, " + name + " !");
+      ensureLoginUI();
+    };
+
+    btnAdminClaim.onclick = () => {
+      const code = adminCodeInput.value.trim();
+      if(!profile || !profile.name){ toast("Connecte d'abord un pseudo."); return; }
+      if(profile.name !== MASTER_ADMIN_NAME){ toast("Accès réservé au propriétaire."); return; }
+      if(code !== MASTER_ADMIN_CODE){ toast("Code admin invalide."); return; }
+      grantAdmin(profile.name);
+      toast("Admin activé pour " + profile.name);
+    };
+
+    ensureLoginUI();
+  </script>
